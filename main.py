@@ -54,7 +54,7 @@ def initialize_camera_and_start_streaming():
         picam2.start()
 
         video_output = FfmpegOutput("-f mpegts udp://192.168.0.154:31001/video")
-        picam2.start_recording(encoder, output=video_output)
+        picam2.start_recording(encoder, output=video_output, name="video.ts")
 
         output_stream = StreamingOutput()
 
