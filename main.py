@@ -5,6 +5,8 @@ from threading import Condition
 
 from flask import Flask, Response, render_template_string
 from picamera2 import Picamera2, Preview
+from picamera2.encoders import H264Encoder
+from picamera2.outputs import FfmpegOutput
 
 # --- Configuration ---
 CAMERA_RESOLUTION = (640, 480)
@@ -42,14 +44,17 @@ def initialize_camera_and_start_streaming():
     try:
         picam2 = Picamera2()
 
-        still_config = picam2.create_still_configuration(
-            main={"size": CAMERA_RESOLUTION}
+        config = picam2.create_still_configuration(
+            main={"size": CAMERA_RESOLUTION},
+            controls={"FrameRate": FRAME_RATE}
         )
-        picam2.start_preview(Preview.NULL)
-        picam2.align_configuration(still_config)
-        picam2.switch_mode(still_config)
-        time.sleep(0.5)
+        picam2.configure(config)
+        picam2.start_preview(Preview.QTGL)
+        encoder = H264Encoder(10000000)
         picam2.start()
+
+        video_output = FfmpegOutput("-f mpegts udp://192.168.0.154:31001/video")
+        picam2.start_recording(encoder, output=video_output)
 
         output_stream = StreamingOutput()
 
