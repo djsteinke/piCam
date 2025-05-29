@@ -84,7 +84,7 @@ class StreamingServer(socketserver.ThreadingMixIn, server.HTTPServer):
 # Create Picamera2 instance and configure it
 picam2 = Picamera2()
 picam2.configure(picam2.create_video_configuration(
-    main={"size": (854, 480)},
+    main={"size": (1920, 1080)},
     controls={"FrameRate": 5}))
 output = StreamingOutput()
 picam2.start_recording(JpegEncoder(), FileOutput(output))
