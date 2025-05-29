@@ -5,8 +5,6 @@ from threading import Condition
 
 from flask import Flask, Response, render_template_string
 from picamera2 import Picamera2
-from picamera2.encoders import JpegEncoder
-from picamera2.outputs import FileOutput
 
 # --- Configuration ---
 CAMERA_RESOLUTION = (640, 480)
@@ -50,14 +48,7 @@ def initialize_camera_and_start_streaming():
         )
         picam2.configure(video_config)
 
-        # Initialize our custom streaming output
-        #output_stream = FileOutput("stream.jpeg")
-
-        # Create a JpegEncoder
-        #encoder = JpegEncoder(num_threads=2, q=JPEG_QUALITY)
-
-        # Start recording to our custom output
-        #picam2.start_recording(encoder, output=output_stream)
+        output_stream = StreamingOutput()
 
         logging.info(f"Camera initialized. Streaming at {CAMERA_RESOLUTION} resolution, {FRAME_RATE} FPS.")
         logging.info(f"Camera controls: {picam2.camera_controls}")
@@ -93,9 +84,6 @@ def generate_frames():
                 # Add a timeout to wait to prevent indefinite blocking if something is wrong
                 if not output_stream.condition.wait(timeout=1.0):
                     # Timeout occurred, check if camera is still running
-                    if not picam2.started:
-                        logging.warning("Camera stopped while waiting for frame. Exiting generate_frames.")
-                        break
                     logging.debug("Timeout waiting for frame, retrying.")
                     continue # Continue to next iteration of the loop to wait again
 
@@ -106,10 +94,6 @@ def generate_frames():
             else:
                 # This might happen if the stream stops or an error occurs
                 logging.warning("Frame was None after condition signaled, skipping.")
-                # If frames stop, ensure the camera is still meant to be running
-                if not picam2.started:
-                    logging.warning("Camera stopped. Exiting generate_frames loop.")
-                    break
                 time.sleep(0.01) # Brief pause
         except Exception as e:
             logging.error(f"Error in generate_frames: {e}", exc_info=True)
