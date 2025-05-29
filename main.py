@@ -81,14 +81,7 @@ def generate_frames():
 
     while True:
         try:
-            with output_stream.condition:
-                # Add a timeout to wait to prevent indefinite blocking if something is wrong
-                if not output_stream.condition.wait(timeout=1.0):
-                    # Timeout occurred, check if camera is still running
-                    logging.debug("Timeout waiting for frame, retrying.")
-                    continue # Continue to next iteration of the loop to wait again
-
-                frame = picam2.capture_array("main")
+            frame = picam2.capture_array("main")
             if frame:
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
