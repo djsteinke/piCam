@@ -18,6 +18,7 @@ SERVER_PORT = 31001
 
 # --- Global Camera and Streaming Output ---
 picam2 = None
+output_stream = None
 
 
 # This class will hold the latest frame and notify waiting threads
