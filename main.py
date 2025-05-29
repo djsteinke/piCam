@@ -12,9 +12,9 @@ from picamera2.encoders import JpegEncoder
 
 # --- Configuration ---
 CAMERA_RESOLUTION = (640, 480)
-FRAME_RATE = 25  # You can try adjusting this
+FRAME_RATE = 10  # You can try adjusting this
 JPEG_QUALITY = 70  # 1-100
-SERVER_PORT = 5000
+SERVER_PORT = 31001
 
 # --- Global Camera and Streaming Output ---
 picam2 = None
