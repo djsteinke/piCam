@@ -83,7 +83,7 @@ def initialize_camera_and_start_streaming():
 def generate_frames():
     """Generator function to yield frames for the MJPEG stream."""
     global output_stream # Ensure we're using the global output_stream
-    if not picam2 or not output_stream or not picam2.started: # Added check for picam2.started
+    if not picam2: # or not output_stream or not picam2.started: # Added check for picam2.started
         logging.error("Camera or output stream not initialized/started for generating frames.")
         return
 
