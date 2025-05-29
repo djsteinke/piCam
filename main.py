@@ -7,13 +7,10 @@ from flask import Flask, Response, render_template_string
 from picamera2 import Picamera2
 from picamera2.encoders import JpegEncoder
 
-# We'll use a custom output class similar to what's used in picamera2 examples
-# for efficient streaming.
-
 # --- Configuration ---
 CAMERA_RESOLUTION = (640, 480)
-FRAME_RATE = 10  # You can try adjusting this
-JPEG_QUALITY = 70  # 1-100
+FRAME_RATE = 10
+JPEG_QUALITY = 70
 SERVER_PORT = 31001
 
 # --- Global Camera and Streaming Output ---
@@ -24,13 +21,17 @@ output_stream = None
 # This class will hold the latest frame and notify waiting threads
 class StreamingOutput(io.BufferedIOBase):
     def __init__(self):
+        super().__init__() # It's good practice to call super().__init__
         self.frame = None
         self.condition = Condition()
 
     def write(self, buf):
+        # The write method should return the number of bytes written.
+        bytes_written = len(buf)
         with self.condition:
             self.frame = buf
             self.condition.notify_all()  # Notify all waiting threads
+        return bytes_written # Return the number of bytes written
 
 
 # --- Flask Application ---
@@ -41,12 +42,6 @@ def initialize_camera_and_start_streaming():
     global picam2, output_stream
     try:
         picam2 = Picamera2()
-
-        # Optional: Print camera info for debugging
-        # logging.info(Picamera2.global_camera_info())
-        # if not picam2.cameras:
-        #     logging.error("No cameras found!")
-        #     return False
 
         video_config = picam2.create_video_configuration(
             main={"size": CAMERA_RESOLUTION},
@@ -61,56 +56,68 @@ def initialize_camera_and_start_streaming():
         encoder = JpegEncoder(q=JPEG_QUALITY)
 
         # Start recording to our custom output
-        # The encoder will write JPEG frames to output_stream.write()
         picam2.start_recording(encoder, output_stream)
 
         logging.info(f"Camera initialized. Streaming at {CAMERA_RESOLUTION} resolution, {FRAME_RATE} FPS.")
         logging.info(f"Camera controls: {picam2.camera_controls}")
 
-        # Allow some time for the camera to warm up and produce the first frame
-        time.sleep(1.5)  # Increased slightly for stability
+        time.sleep(1.5)
         return True
     except Exception as e:
+        # Ensure the full exception (including "must pass output") is logged
         logging.error(f"Failed to initialize camera or start recording: {e}", exc_info=True)
         if picam2:
             try:
-                picam2.close()  # Ensure camera is closed on error
+                # Attempt to stop recording if it somehow started before error
+                if picam2.started: # Check if recording was started
+                    picam2.stop_recording()
+                picam2.close()
             except Exception as close_e:
-                logging.error(f"Error closing camera during error handling: {close_e}")
-        picam2 = None  # Reset global
+                logging.error(f"Error during camera cleanup after initialization failure: {close_e}")
+        picam2 = None
+        output_stream = None # Also reset output_stream if initialization fails
         return False
 
 
 def generate_frames():
     """Generator function to yield frames for the MJPEG stream."""
-    global output_stream
-    if not picam2 or not output_stream:
-        logging.error("Camera or output stream not initialized for generating frames.")
-        # Yield a placeholder or error image if you want
-        # For now, just stop if not initialized
+    global output_stream # Ensure we're using the global output_stream
+    if not picam2 or not output_stream or not picam2.started: # Added check for picam2.started
+        logging.error("Camera or output stream not initialized/started for generating frames.")
         return
 
     while True:
         try:
             with output_stream.condition:
-                output_stream.condition.wait()  # Wait until a new frame is available
+                # Add a timeout to wait to prevent indefinite blocking if something is wrong
+                if not output_stream.condition.wait(timeout=1.0):
+                    # Timeout occurred, check if camera is still running
+                    if not picam2.started:
+                        logging.warning("Camera stopped while waiting for frame. Exiting generate_frames.")
+                        break
+                    logging.debug("Timeout waiting for frame, retrying.")
+                    continue # Continue to next iteration of the loop to wait again
+
                 frame = output_stream.frame
             if frame:
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
             else:
                 # This might happen if the stream stops or an error occurs
-                logging.warning("Frame was None, skipping.")
-                time.sleep(0.1)  # Avoid busy-looping if frames stop
+                logging.warning("Frame was None after condition signaled, skipping.")
+                # If frames stop, ensure the camera is still meant to be running
+                if not picam2.started:
+                    logging.warning("Camera stopped. Exiting generate_frames loop.")
+                    break
+                time.sleep(0.01) # Brief pause
         except Exception as e:
             logging.error(f"Error in generate_frames: {e}", exc_info=True)
-            break  # Exit the loop on error to prevent continuous logging
+            break
 
 
 @app.route('/')
 def index():
     """Serves the main HTML page with the video feed."""
-    # Using render_template_string to keep HTML within the Python file for simplicity
     html_content = """
     <!DOCTYPE html>
     <html>
@@ -128,12 +135,9 @@ def index():
         <img id="video_stream" src="{{ url_for('video_feed') }}" width="{{width}}" height="{{height}}" alt="Loading video stream...">
         <p>Powered by Picamera2 and Flask.</p>
         <script>
-            // Optional: Add a simple error handler for the image
             const img = document.getElementById('video_stream');
             img.onerror = function() {
                 this.alt = 'Video stream failed to load. Check Pi console for errors.';
-                // You could also try to reload the image or display a message
-                // For example: document.body.innerHTML += "<p style='color:red;'>Stream error. Please check server.</p>";
             };
         </script>
     </body>
@@ -145,9 +149,9 @@ def index():
 @app.route('/video_feed')
 def video_feed():
     """Route that serves the MJPEG video stream."""
-    if not picam2 or not output_stream:
-        logging.error("Video feed requested, but camera is not ready.")
-        return "Camera not ready", 503  # Service Unavailable
+    if not picam2 or not output_stream or not picam2.started: # Added check for picam2.started
+        logging.error("Video feed requested, but camera is not ready or not started.")
+        return "Camera not ready", 503
 
     return Response(generate_frames(),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
@@ -158,13 +162,9 @@ if __name__ == '__main__':
 
     if not initialize_camera_and_start_streaming():
         logging.error("Application cannot start due to camera initialization failure.")
-        # Optionally, you could exit here or try to run a limited version of the app
-        # For this example, we'll prevent Flask from starting if the camera fails.
     else:
         try:
             logging.info(f"Starting Flask server on http://0.0.0.0:{SERVER_PORT}")
-            # threaded=True allows Flask to handle multiple requests concurrently (e.g., serving the stream and other pages)
-            # and ensures the camera's background recording thread doesn't block Flask.
             app.run(host='0.0.0.0', port=SERVER_PORT, threaded=True, debug=False)
         except KeyboardInterrupt:
             logging.info("Keyboard interrupt received. Shutting down...")
@@ -172,10 +172,11 @@ if __name__ == '__main__':
             logging.error(f"An error occurred while running the Flask app: {e}", exc_info=True)
         finally:
             if picam2:
-                logging.info("Stopping camera recording...")
+                logging.info("Shutting down camera...")
                 try:
-                    picam2.stop_recording()
-                    logging.info("Camera recording stopped.")
+                    if picam2.started: # Check if recording was started before trying to stop
+                        picam2.stop_recording()
+                        logging.info("Camera recording stopped.")
                 except Exception as e:
                     logging.error(f"Error stopping recording: {e}", exc_info=True)
                 try:
