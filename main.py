@@ -56,7 +56,7 @@ def initialize_camera_and_start_streaming():
         encoder = JpegEncoder(q=JPEG_QUALITY)
 
         # Start recording to our custom output
-        picam2.start_recording(encoder, output_stream)
+        picam2.start_recording(encoder, output=output_stream)
 
         logging.info(f"Camera initialized. Streaming at {CAMERA_RESOLUTION} resolution, {FRAME_RATE} FPS.")
         logging.info(f"Camera controls: {picam2.camera_controls}")
