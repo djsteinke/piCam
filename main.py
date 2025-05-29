@@ -10,7 +10,7 @@ from picamera2.encoders import JpegEncoder
 # --- Configuration ---
 CAMERA_RESOLUTION = (640, 480)
 FRAME_RATE = 10
-JPEG_QUALITY = 70
+JPEG_QUALITY = 50
 SERVER_PORT = 31001
 
 # --- Global Camera and Streaming Output ---
@@ -53,7 +53,7 @@ def initialize_camera_and_start_streaming():
         output_stream = StreamingOutput()
 
         # Create a JpegEncoder
-        encoder = JpegEncoder(q=JPEG_QUALITY)
+        encoder = JpegEncoder(num_threads=2, q=JPEG_QUALITY)
 
         # Start recording to our custom output
         picam2.start_recording(encoder, output=output_stream)
