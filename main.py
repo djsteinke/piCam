@@ -49,7 +49,7 @@ def initialize_camera_and_start_streaming():
             controls={"FrameRate": FRAME_RATE}
         )
         picam2.configure(config)
-        picam2.start_preview(Preview.QTGL)
+        picam2.start_preview(Preview.NULL)
         encoder = H264Encoder(10000000)
         picam2.start()
 
