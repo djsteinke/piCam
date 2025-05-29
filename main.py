@@ -90,7 +90,7 @@ def generate_frames():
                 frame = picam2.capture_array("main")
             if frame:
                 yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+                       b'Content-Type: image/jpeg\r\n\r\n' + frame.tobytes() + b'\r\n')
             else:
                 # This might happen if the stream stops or an error occurs
                 logging.warning("Frame was None after condition signaled, skipping.")
