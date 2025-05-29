@@ -6,6 +6,7 @@ from threading import Condition
 from flask import Flask, Response, render_template_string
 from picamera2 import Picamera2
 from picamera2.encoders import JpegEncoder
+from picamera2.outputs import FileOutput
 
 # --- Configuration ---
 CAMERA_RESOLUTION = (640, 480)
@@ -50,7 +51,7 @@ def initialize_camera_and_start_streaming():
         picam2.configure(video_config)
 
         # Initialize our custom streaming output
-        output_stream = StreamingOutput()
+        output_stream = FileOutput("stream.jpeg")
 
         # Create a JpegEncoder
         encoder = JpegEncoder(num_threads=2, q=JPEG_QUALITY)
