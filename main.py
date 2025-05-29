@@ -51,13 +51,13 @@ def initialize_camera_and_start_streaming():
         picam2.configure(video_config)
 
         # Initialize our custom streaming output
-        output_stream = FileOutput("stream.jpeg")
+        #output_stream = FileOutput("stream.jpeg")
 
         # Create a JpegEncoder
-        encoder = JpegEncoder(num_threads=2, q=JPEG_QUALITY)
+        #encoder = JpegEncoder(num_threads=2, q=JPEG_QUALITY)
 
         # Start recording to our custom output
-        picam2.start_recording(encoder, output=output_stream)
+        #picam2.start_recording(encoder, output=output_stream)
 
         logging.info(f"Camera initialized. Streaming at {CAMERA_RESOLUTION} resolution, {FRAME_RATE} FPS.")
         logging.info(f"Camera controls: {picam2.camera_controls}")
@@ -99,7 +99,7 @@ def generate_frames():
                     logging.debug("Timeout waiting for frame, retrying.")
                     continue # Continue to next iteration of the loop to wait again
 
-                frame = output_stream.frame
+                frame = picam2.capture_array()
             if frame:
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
