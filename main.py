@@ -99,7 +99,7 @@ def generate_frames():
                     logging.debug("Timeout waiting for frame, retrying.")
                     continue # Continue to next iteration of the loop to wait again
 
-                frame = picam2.capture_array()
+                frame = picam2.capture_array("main")
             if frame:
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
