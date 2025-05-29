@@ -4,7 +4,7 @@ import time
 from threading import Condition
 
 from flask import Flask, Response, render_template_string
-from picamera2 import Picamera2
+from picamera2 import Picamera2, Preview
 
 # --- Configuration ---
 CAMERA_RESOLUTION = (640, 480)
@@ -42,11 +42,14 @@ def initialize_camera_and_start_streaming():
     try:
         picam2 = Picamera2()
 
-        video_config = picam2.create_video_configuration(
-            main={"size": CAMERA_RESOLUTION},
-            controls={"FrameRate": FRAME_RATE}
+        still_config = picam2.create_still_configuration(
+            main={"size": CAMERA_RESOLUTION}
         )
-        picam2.configure(video_config)
+        picam2.start_preview(Preview.NULL)
+        picam2.align_configuration(still_config)
+        picam2.switch_mode(still_config)
+        time.sleep(0.5)
+        picam2.start()
 
         output_stream = StreamingOutput()
 
@@ -61,8 +64,6 @@ def initialize_camera_and_start_streaming():
         if picam2:
             try:
                 # Attempt to stop recording if it somehow started before error
-                if picam2.started: # Check if recording was started
-                    picam2.stop_recording()
                 picam2.close()
             except Exception as close_e:
                 logging.error(f"Error during camera cleanup after initialization failure: {close_e}")
