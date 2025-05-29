@@ -150,7 +150,7 @@ def index():
 @app.route('/video_feed')
 def video_feed():
     """Route that serves the MJPEG video stream."""
-    if not picam2 or not output_stream or not picam2.started: # Added check for picam2.started
+    if not picam2:# or not output_stream or not picam2.started: # Added check for picam2.started
         logging.error("Video feed requested, but camera is not ready or not started.")
         return "Camera not ready", 503
 
